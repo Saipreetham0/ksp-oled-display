@@ -1,8 +1,8 @@
-# KSP Electronics — Raspberry Pi 4B OLED Display
+# KSP Electronics — Raspberry Pi 4B OLED Display + PWM Fan Control
 
-A Python project for driving a **0.96" SSD1306 OLED display** (128×64, I2C) on a Raspberry Pi 4B.  
+A Python project for driving a **0.96" SSD1306 OLED display** (128×64, I2C) on a Raspberry Pi 4B and automatically controlling a **PWM fan** based on CPU temperature.  
 Shows a **KSP Electronics boot logo** followed by a **live system stats dashboard** — IP address, CPU load, CPU temperature, RAM usage, and Disk usage — updating every second.  
-Runs automatically on boot via a **systemd service**.
+Both features run automatically on boot via **systemd services**.
 
 ---
 
@@ -39,8 +39,9 @@ Runs automatically on boot via a **systemd service**.
 | Board | Raspberry Pi 4B |
 | Display | 0.96" OLED — SSD1306, 128×64, I2C |
 | I2C Address | `0x3C` (default) |
+| Fan | 5V PWM fan via GPIO 14 (Pin 8) |
 
-### Wiring
+### OLED Wiring
 
 | OLED Pin | Raspberry Pi 4B Pin | GPIO |
 |----------|---------------------|------|
@@ -48,6 +49,14 @@ Runs automatically on boot via a **systemd service**.
 | GND      | Pin 6               | GND  |
 | SDA      | Pin 3               | GPIO 2 |
 | SCL      | Pin 5               | GPIO 3 |
+
+### Fan Wiring
+
+| Fan Pin  | Raspberry Pi 4B Pin | GPIO |
+|----------|---------------------|------|
+| VCC      | 5V (Pin 4)          | —    |
+| GND      | GND (Pin 6)         | —    |
+| PWM      | Pin 8               | GPIO 14 |
 
 ---
 
@@ -64,6 +73,7 @@ adafruit-blinka
 adafruit-circuitpython-ssd1306
 pillow
 psutil
+RPi.GPIO
 ```
 
 ---
@@ -117,7 +127,7 @@ sudo systemctl start ksp-oled
 
 ---
 
-## Service Management
+## OLED Service Management
 
 | Action | Command |
 |--------|---------|
@@ -133,12 +143,35 @@ sudo systemctl start ksp-oled
 
 ```
 ksp-oled-display/
-├── ksp_oled.py          # Main display script
-├── ksp-oled.service     # systemd service unit
-├── install.sh           # One-shot installer
-├── requirements.txt     # Python dependencies
+├── ksp_oled.py              # OLED display script
+├── ksp-oled.service         # systemd service — OLED
+├── pwm-fan-control.py       # PWM fan control script
+├── pwm-fan-control.service  # systemd service — fan
+├── install.sh               # One-shot installer (installs both)
+├── requirements.txt         # Python dependencies
 └── README.md
 ```
+
+---
+
+## PWM Fan Control
+
+The fan runs automatically based on CPU temperature using `RPi.GPIO` PWM on **GPIO 14**.
+
+| CPU Temperature | Fan Speed |
+|-----------------|-----------|
+| Below 40°C      | Off (0%)  |
+| 40°C and above  | 100%      |
+
+### Service Management
+
+| Action | Command |
+|--------|---------|
+| Check status | `sudo systemctl status pwm-fan-control` |
+| Stop | `sudo systemctl stop pwm-fan-control` |
+| Restart | `sudo systemctl restart pwm-fan-control` |
+| View live logs | `sudo journalctl -u pwm-fan-control -f` |
+| Disable autostart | `sudo systemctl disable pwm-fan-control` |
 
 ---
 
