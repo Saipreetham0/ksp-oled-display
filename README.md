@@ -139,10 +139,32 @@ sudo systemctl start ksp-oled
 
 ---
 
+## Configuration
+
+All settings for both the OLED display and the fan are in one file: **`config.py`**
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `OLED_WIDTH` | `128` | Display width in pixels |
+| `OLED_HEIGHT` | `64` | Display height in pixels |
+| `OLED_I2C_ADDR` | `0x3C` | I2C address (try `0x3D` if display not found) |
+| `BOOT_LOGO_SECONDS` | `4` | How long to show the KSP boot logo |
+| `STATS_REFRESH_SEC` | `1` | Stats screen refresh interval |
+| `TEMP_BAR_MAX_C` | `85` | Temperature that fills the bar to 100% |
+| `FAN_GPIO_PIN` | `14` | BCM GPIO pin for fan PWM signal |
+| `FAN_PWM_FREQ` | `100` | PWM frequency in Hz |
+| `FAN_ON_TEMP_C` | `40` | CPU temperature (°C) that turns the fan on |
+| `FAN_POLL_SEC` | `1` | How often to check temperature |
+
+Edit `config.py` before running `install.sh` to customise for your hardware.
+
+---
+
 ## File Structure
 
 ```
 ksp-oled-display/
+├── config.py                # All settings — edit this first
 ├── ksp_oled.py              # OLED display script
 ├── ksp-oled.service         # systemd service — OLED
 ├── pwm-fan-control.py       # PWM fan control script

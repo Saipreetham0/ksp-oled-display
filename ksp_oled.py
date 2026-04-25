@@ -2,7 +2,6 @@
 """
 KSP Electronics OLED Display
 Boot logo + live system stats (IP, CPU, Temp, RAM, Disk)
-128x64 SSD1306 I2C at 0x3C
 """
 import board
 import busio
@@ -12,24 +11,26 @@ import psutil
 import time
 import subprocess
 
-# ── Display setup ────────────────────────────────────────────────
-WIDTH, HEIGHT, ADDR = 128, 64, 0x3C
-i2c = busio.I2C(board.SCL, board.SDA)
-oled = adafruit_ssd1306.SSD1306_I2C(WIDTH, HEIGHT, i2c, addr=ADDR)
+from config import (
+    OLED_WIDTH, OLED_HEIGHT, OLED_I2C_ADDR,
+    BOOT_LOGO_SECONDS, STATS_REFRESH_SEC, TEMP_BAR_MAX_C,
+    FONT_BOLD, FONT_MONO,
+    FONT_SIZE_KSP, FONT_SIZE_ELEC, FONT_SIZE_LABEL, FONT_SIZE_VALUE,
+)
+
+# ── Display setup ─────────────────────────────────────────────────
+i2c  = busio.I2C(board.SCL, board.SDA)
+oled = adafruit_ssd1306.SSD1306_I2C(OLED_WIDTH, OLED_HEIGHT, i2c, addr=OLED_I2C_ADDR)
 oled.fill(0)
 oled.show()
 
-# ── Fonts ────────────────────────────────────────────────────────
-BOLD  = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-REG   = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-MONO  = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+# ── Fonts ─────────────────────────────────────────────────────────
+f_ksp   = ImageFont.truetype(FONT_BOLD, FONT_SIZE_KSP)
+f_elec  = ImageFont.truetype(FONT_BOLD, FONT_SIZE_ELEC)
+f_label = ImageFont.truetype(FONT_BOLD, FONT_SIZE_LABEL)
+f_value = ImageFont.truetype(FONT_MONO, FONT_SIZE_VALUE)
 
-f_ksp   = ImageFont.truetype(BOLD, 38)   # "KSP" — large & bold
-f_elec  = ImageFont.truetype(BOLD, 13)   # "ELECTRONICS"
-f_label = ImageFont.truetype(BOLD, 10)   # stat labels
-f_value = ImageFont.truetype(MONO, 10)   # stat values
-
-# ── Helpers ──────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────
 def text_w(draw, text, font):
     return draw.textlength(text, font=font)
 
@@ -63,7 +64,6 @@ def get_disk():
     return d.percent, d.used // (1024**3), d.total // (1024**3)
 
 def draw_bar(draw, x, y, w, h, pct, fill=1):
-    """Draw a thin progress bar."""
     draw.rectangle([x, y, x + w - 1, y + h - 1], outline=fill, fill=0)
     filled = int((pct / 100) * (w - 2))
     if filled > 0:
@@ -73,39 +73,35 @@ def show(img):
     oled.image(img)
     oled.show()
 
-# ════════════════════════════════════════════════════════════════
-# BOOT LOGO — "KSP" big & inverted, "ELECTRONICS" below
-# ════════════════════════════════════════════════════════════════
-img = Image.new("1", (WIDTH, HEIGHT), 0)
+# ══════════════════════════════════════════════════════════════════
+# BOOT LOGO
+# ══════════════════════════════════════════════════════════════════
+img  = Image.new("1", (OLED_WIDTH, OLED_HEIGHT), 0)
 draw = ImageDraw.Draw(img)
 
-# --- KSP block (inverted = white box, black letters) ---
 ksp_text = "KSP"
 kw = int(text_w(draw, ksp_text, f_ksp))
-kh = 42                           # block height
-kx = (WIDTH - kw) // 2 - 4       # center with padding
+kh = 42
+kx = (OLED_WIDTH - kw) // 2 - 4
 ky = 2
-draw.rectangle([kx - 2, ky, kx + kw + 5, ky + kh], fill=1)   # white bg
-draw.text((kx + 1, ky - 1), ksp_text, font=f_ksp, fill=0)     # black text
+draw.rectangle([kx - 2, ky, kx + kw + 5, ky + kh], fill=1)
+draw.text((kx + 1, ky - 1), ksp_text, font=f_ksp, fill=0)
 
-# --- ELECTRONICS below ---
 e_text = "ELECTRONICS"
 ew = int(text_w(draw, e_text, f_elec))
-ex = (WIDTH - ew) // 2
+ex = (OLED_WIDTH - ew) // 2
 ey = ky + kh + 3
 draw.text((ex, ey), e_text, font=f_elec, fill=1)
-
-# thin underline
 draw.line([ex, ey + 14, ex + ew, ey + 14], fill=1)
 
 show(img)
-time.sleep(4)   # hold boot logo 4 seconds
+time.sleep(BOOT_LOGO_SECONDS)
 
-# ════════════════════════════════════════════════════════════════
-# STATS LOOP — IP / CPU / MEM / DISK, refreshes every second
-# ════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════
+# STATS LOOP
+# ══════════════════════════════════════════════════════════════════
 while True:
-    img = Image.new("1", (WIDTH, HEIGHT), 0)
+    img  = Image.new("1", (OLED_WIDTH, OLED_HEIGHT), 0)
     draw = ImageDraw.Draw(img)
 
     ip      = get_ip()
@@ -114,45 +110,38 @@ while True:
     mem_pct, mem_used, mem_tot = get_mem()
     dsk_pct, dsk_used, dsk_tot = get_disk()
 
-    # ── Header bar ──────────────────────────────────────────────
-    draw.rectangle([0, 0, WIDTH - 1, 11], fill=1)
+    # Header
+    draw.rectangle([0, 0, OLED_WIDTH - 1, 11], fill=1)
     hdr = "KSP ELECTRONICS"
-    hw = int(text_w(draw, hdr, f_label))
-    draw.text(((WIDTH - hw) // 2, 1), hdr, font=f_label, fill=0)
+    hw  = int(text_w(draw, hdr, f_label))
+    draw.text(((OLED_WIDTH - hw) // 2, 1), hdr, font=f_label, fill=0)
 
-    # ── Layout: 5 rows below header (10 px each) ────────────────
     rows = [13, 23, 33, 43, 53]
     BAR_X, BAR_W, BAR_H = 68, 57, 6
 
-    # ── IP ──────────────────────────────────────────────────────
     y = rows[0]
     draw.text((0, y), "IP:", font=f_label, fill=1)
     draw.text((18, y), ip, font=f_value, fill=1)
 
-    # ── CPU load ────────────────────────────────────────────────
     y = rows[1]
     draw.text((0, y), "CPU:", font=f_label, fill=1)
     draw.text((27, y), f"{cpu_pct:5.1f}%", font=f_value, fill=1)
     draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, cpu_pct)
 
-    # ── CPU temperature ─────────────────────────────────────────
     y = rows[2]
     draw.text((0, y), "TMP:", font=f_label, fill=1)
     draw.text((27, y), f"{temp_c:5.1f}°C", font=f_value, fill=1)
-    # bar maps 0–85 °C range
-    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, min(temp_c / 85 * 100, 100))
+    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, min(temp_c / TEMP_BAR_MAX_C * 100, 100))
 
-    # ── Memory ──────────────────────────────────────────────────
     y = rows[3]
     draw.text((0, y), "MEM:", font=f_label, fill=1)
     draw.text((27, y), f"{mem_pct:5.1f}%", font=f_value, fill=1)
     draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, mem_pct)
 
-    # ── Disk ────────────────────────────────────────────────────
     y = rows[4]
     draw.text((0, y), "DSK:", font=f_label, fill=1)
     draw.text((27, y), f"{dsk_pct:5.1f}%", font=f_value, fill=1)
     draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, dsk_pct)
 
     show(img)
-    time.sleep(1)
+    time.sleep(STATS_REFRESH_SEC)

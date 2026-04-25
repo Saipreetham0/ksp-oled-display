@@ -3,7 +3,8 @@ Description=PWM Fan Control
 After=multi-user.target
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/pwm-fan-control.py
+ExecStart=/usr/bin/python3 /home/pi/ksp-oled-display/pwm-fan-control.py
+WorkingDirectory=/home/pi/ksp-oled-display
 Restart=always
 RestartSec=5
 User=root
