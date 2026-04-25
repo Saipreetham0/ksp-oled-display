@@ -1,7 +1,7 @@
 # KSP Electronics — Raspberry Pi 4B OLED Display
 
 A Python project for driving a **0.96" SSD1306 OLED display** (128×64, I2C) on a Raspberry Pi 4B.  
-Shows a **KSP Electronics boot logo** followed by a **live system stats dashboard** — IP address, CPU load, RAM usage, and Disk usage — updating every second.  
+Shows a **KSP Electronics boot logo** followed by a **live system stats dashboard** — IP address, CPU load, CPU temperature, RAM usage, and Disk usage — updating every second.  
 Runs automatically on boot via a **systemd service**.
 
 ---
@@ -24,7 +24,8 @@ Runs automatically on boot via a **systemd service**.
 ┌──── KSP ELECTRONICS ────────┐  ← Inverted header
 │ IP:  192.168.1.x            │
 │ CPU:  12.5%  [████░░░░░░░] │
-│ MEM:  45.2%  [███████░░░░] │
+│ TMP:  45.2°C [█████░░░░░░] │
+│ MEM:  45.0%  [███████░░░░] │
 │ DSK:  18.9%  [███░░░░░░░░] │
 └─────────────────────────────┘
 ```
@@ -146,9 +147,10 @@ ksp-oled-display/
 1. **Boot logo** — On startup, renders `KSP` in a large inverted (white-block/black-text) style with `ELECTRONICS` underneath. Displayed for 4 seconds.
 2. **Stats loop** — Switches to a live dashboard with:
    - **IP** — primary network IP via `hostname -I`
-   - **CPU** — load percentage via `psutil`
+   - **CPU** — load percentage via `psutil` + progress bar
+   - **TMP** — CPU temperature from `/sys/class/thermal` + bar (0–85 °C scale)
    - **MEM** — RAM usage percentage + progress bar
-   - **DSK** — Root disk usage percentage + progress bar
+   - **DSK** — root disk usage percentage + progress bar
    - Refreshes every second
 
 ---

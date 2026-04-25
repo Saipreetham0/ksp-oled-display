@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 KSP Electronics OLED Display
-Boot logo + live system stats (IP, CPU, RAM, Disk)
+Boot logo + live system stats (IP, CPU, Temp, RAM, Disk)
 128x64 SSD1306 I2C at 0x3C
 """
 import board
@@ -46,6 +46,17 @@ def get_cpu():
 def get_mem():
     m = psutil.virtual_memory()
     return m.percent, m.used // (1024**2), m.total // (1024**2)
+
+def get_temp():
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp") as f:
+            return int(f.read()) / 1000.0
+    except Exception:
+        try:
+            t = psutil.sensors_temperatures()
+            return list(t.values())[0][0].current
+        except Exception:
+            return 0.0
 
 def get_disk():
     d = psutil.disk_usage("/")
@@ -99,18 +110,18 @@ while True:
 
     ip      = get_ip()
     cpu_pct = get_cpu()
+    temp_c  = get_temp()
     mem_pct, mem_used, mem_tot = get_mem()
     dsk_pct, dsk_used, dsk_tot = get_disk()
 
     # ── Header bar ──────────────────────────────────────────────
-    draw.rectangle([0, 0, WIDTH - 1, 12], fill=1)
+    draw.rectangle([0, 0, WIDTH - 1, 11], fill=1)
     hdr = "KSP ELECTRONICS"
     hw = int(text_w(draw, hdr, f_label))
     draw.text(((WIDTH - hw) // 2, 1), hdr, font=f_label, fill=0)
 
-    # ── Layout: 4 rows below header ─────────────────────────────
-    # Row positions
-    rows = [15, 27, 39, 51]
+    # ── Layout: 5 rows below header (10 px each) ────────────────
+    rows = [13, 23, 33, 43, 53]
     BAR_X, BAR_W, BAR_H = 68, 57, 6
 
     # ── IP ──────────────────────────────────────────────────────
@@ -118,23 +129,30 @@ while True:
     draw.text((0, y), "IP:", font=f_label, fill=1)
     draw.text((18, y), ip, font=f_value, fill=1)
 
-    # ── CPU ─────────────────────────────────────────────────────
+    # ── CPU load ────────────────────────────────────────────────
     y = rows[1]
     draw.text((0, y), "CPU:", font=f_label, fill=1)
     draw.text((27, y), f"{cpu_pct:5.1f}%", font=f_value, fill=1)
-    draw_bar(draw, BAR_X, y + 1, BAR_W, BAR_H, cpu_pct)
+    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, cpu_pct)
+
+    # ── CPU temperature ─────────────────────────────────────────
+    y = rows[2]
+    draw.text((0, y), "TMP:", font=f_label, fill=1)
+    draw.text((27, y), f"{temp_c:5.1f}°C", font=f_value, fill=1)
+    # bar maps 0–85 °C range
+    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, min(temp_c / 85 * 100, 100))
 
     # ── Memory ──────────────────────────────────────────────────
-    y = rows[2]
+    y = rows[3]
     draw.text((0, y), "MEM:", font=f_label, fill=1)
     draw.text((27, y), f"{mem_pct:5.1f}%", font=f_value, fill=1)
-    draw_bar(draw, BAR_X, y + 1, BAR_W, BAR_H, mem_pct)
+    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, mem_pct)
 
     # ── Disk ────────────────────────────────────────────────────
-    y = rows[3]
+    y = rows[4]
     draw.text((0, y), "DSK:", font=f_label, fill=1)
     draw.text((27, y), f"{dsk_pct:5.1f}%", font=f_value, fill=1)
-    draw_bar(draw, BAR_X, y + 1, BAR_W, BAR_H, dsk_pct)
+    draw_bar(draw, BAR_X, y + 2, BAR_W, BAR_H, dsk_pct)
 
     show(img)
     time.sleep(1)
